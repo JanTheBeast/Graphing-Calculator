@@ -2,7 +2,7 @@
 #include <cerrno>
 #include <cmath>
 
-Function::Function(float(*func)(float, float), float xmin, float ymin, float xmax, float ymax)
+Function::Function(std::queue<Token>& func, float xmin, float ymin, float xmax, float ymax)
     :m_Function(func)
 {
     SetDimensions(xmin, ymin, xmax, ymax);
@@ -34,26 +34,40 @@ void Function::RecomputeVertices()
 
 void Function::SetDimensions(float xmin, float ymin, float xmax, float ymax)
 {
-    m_Xmin = xmin;
-    m_Ymin = ymin;
-    m_Xmax = xmax;
-    m_Ymax = ymax;
+    if (xmin < xmax)
+    {
+        m_Xmin = xmin;
+        m_Xmax = xmax;
+    }
+
+    if (ymin < ymax)
+    {
+        m_Ymin = ymin;
+        m_Ymax = ymax;
+
+    }
 
     m_StepSizeX = (float)(m_Xmax - m_Xmin) / STEP_COUNT;
     m_StepSizeY = (float)(m_Ymax - m_Ymin) / STEP_COUNT;
+}
+
+void Function::IncrementDimensions(float dxmin, float dymin, float dxmax, float dymax)
+{
+    SetDimensions(m_Xmin + dxmin, m_Ymin + dymin, m_Xmax + dxmax, m_Ymax + dymax);
 }
 
 ComparisonState* Function::ConvertToBinaryImage()
 {
     ComparisonState* result = new ComparisonState[ARRAY_SIZE * ARRAY_SIZE];
 
-    for(int indy = 0; indy < ARRAY_SIZE; ++indy)
+    for (int indy = 0; indy < ARRAY_SIZE; ++indy)
     {
         float y = indy * m_StepSizeY + m_Ymin;
-        for(int indx = 0; indx < ARRAY_SIZE; ++indx)
+        for (int indx = 0; indx < ARRAY_SIZE; ++indx)
         {
-            float x = indx * m_StepSizeX + m_Xmin; 
-            float funcValue = m_Function(x, y);
+            float x = indx * m_StepSizeX + m_Xmin;
+            float funcValue = EvaluateExpression(m_Function, x, y);
+
 #ifndef __FAST_MATH__
             if (funcValue != funcValue) // This only works when the IEEE-standard is upheld
                 result[indy * ARRAY_SIZE + indx] = COMP_UNDEFINED;
@@ -103,7 +117,7 @@ unsigned int* Function::ComputeIndices(unsigned int size)
     return result;
 }
 
-float Function::LinearInterpolateGetT(float f1, float f2)
+inline float Function::LinearInterpolateGetT(float f1, float f2)
 {
     return -f1 / (f2 - f1);
 }
@@ -114,10 +128,10 @@ Point Function::LinearInterpolate(int arrx1, int arry1, int arrx2, int arry2)
     float funcx2 = arrx2 * m_StepSizeX + m_Xmin;
     float funcy1 = arry1 * m_StepSizeY + m_Ymin;
     float funcy2 = arry2 * m_StepSizeY + m_Ymin;
-    float t = LinearInterpolateGetT(m_Function(funcx1, funcy1), m_Function(funcx2, funcy2));
+    float t = LinearInterpolateGetT(EvaluateExpression(m_Function, funcx1, funcy1), EvaluateExpression(m_Function, funcx2, funcy2));
 
     float x1 = 2 * (float)arrx1 / ARRAY_SIZE_1 - 1;
-    float x2 = 2 * (float)arrx2 / ARRAY_SIZE_1 - 1;    
+    float x2 = 2 * (float)arrx2 / ARRAY_SIZE_1 - 1;
     float y1 = 2 * (float)arry1 / ARRAY_SIZE_1 - 1;
     float y2 = 2 * (float)arry2 / ARRAY_SIZE_1 - 1;
 

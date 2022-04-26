@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "Calculator/MarchingSquares.h"
+#include "Calculator/Expression.h"
 
 #include "Engine/Renderer.h"
 #include "Engine/VertexBuffer.h"
@@ -14,18 +15,13 @@
 #include "Engine/Texture.h"
 #include "Engine/Window.h"
 
-float circle(float x, float y)
-{
-    return y*y + x*x - 1;
-}
-
-float f(float x, float y)
-{
-    return y - sqrt(x);
-}
-
 int main(void)
 {
+    std::cout << "Enter an implicit function (right hand side should be zero and emitted):\n";
+    std::string s;
+    std::getline(std::cin, s);
+
+
     Window window;
     
     if(glewInit() != GLEW_OK) 
@@ -34,7 +30,11 @@ int main(void)
     std::cout << glGetString(GL_VERSION) << std::endl;
     
     {
-        Function function = Function(&circle, -2, -2, 2, 2);
+
+        std::deque<Token> temp = ExprToTokens(s);
+        std::queue<Token> test = ShuntingYard(temp);
+
+        Function function = Function(test);
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -56,33 +56,54 @@ int main(void)
 
         Renderer renderer;
 
-        float increment = 0.005f;
-        float xoffset = 0;
+        float increment = 0.05f;
+
+        float currentFrame = 0.0f;
+        float lastFrame = 0.0f;
+        float deltaTime = 0.0f;
+        bool hasUpdated = false;
 
         /* Loop until the user closes the window */
         while (!window.ShouldClose())
         {
+            currentFrame = glfwGetTime();
+            deltaTime = currentFrame - lastFrame;
+            lastFrame = currentFrame;
+
+            std::cout << "FPS: " << 1 / deltaTime << '\n';
+
             /* Render here */
-            renderer.Clear(0, 0, 0, 1);
+            renderer.Clear();
 
             shader.Bind();
             //shader.SetUniform4f("u_Color", r, 0.3f, 0.8f, 1.0f);
-            vb.UpdateBuffer(function.getVertices(), function.getVertexSize());
-            ib.UpdateBuffer(function.getIndices(), function.getIndexCount());
 
-            renderer.DrawLines(va, ib, shader);
+            float xoffset = 0;
+            float yoffset = 0;
+            float zoom = 0;
 
-            if (xoffset > 1.0f) increment = -0.005f;
-            else if (xoffset < 0.0f) increment = 0.005f;
-            xoffset += increment;
+            if (window.GetKey(GLFW_KEY_W) == GLFW_PRESS)
+                yoffset -= increment;
+            if (window.GetKey(GLFW_KEY_A) == GLFW_PRESS)
+                xoffset += increment;
+            if (window.GetKey(GLFW_KEY_S) == GLFW_PRESS)
+                yoffset += increment;
+            if (window.GetKey(GLFW_KEY_D) == GLFW_PRESS)
+                xoffset -= increment;
+            if (window.GetKey(GLFW_KEY_Q) == GLFW_PRESS)
+                zoom += increment;
+            if (window.GetKey(GLFW_KEY_E) == GLFW_PRESS)
+                zoom -= increment;
 
-            int state = window.GetKey(GLFW_KEY_SPACE);
-            if (state == GLFW_PRESS)
+            if (xoffset || yoffset || zoom)
             {
-                function.SetDimensions(-2 + xoffset, -2 + xoffset, 2 - xoffset, 2 - xoffset);
+                function.IncrementDimensions(xoffset - zoom, yoffset - zoom, xoffset + zoom, yoffset + zoom);
                 function.RecomputeVertices();
+                vb.UpdateBuffer(function.getVertices(), function.getVertexSize());
+                ib.UpdateBuffer(function.getIndices(), function.getIndexCount());
             }
 
+            renderer.DrawLines(va, ib, shader);
             /* Swap front and back buffers */
             window.SwapBuffers();
 

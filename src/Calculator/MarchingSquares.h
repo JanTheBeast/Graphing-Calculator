@@ -1,12 +1,10 @@
-#define STEP_COUNT 100
+#define STEP_COUNT 40
 #define ARRAY_SIZE STEP_COUNT
 #define ARRAY_SIZE_1 (ARRAY_SIZE - 1)
 
-//#define STEP_SIZE_X (float) (X_MAX - X_MIN) / STEP_COUNT
-//#define STEP_SIZE_Y (float) (Y_MAX - Y_MIN) / STEP_COUNT
-
 #include <iostream>
 #include <vector>
+#include "Expression.h"
 
 enum ComparisonState : unsigned char
 {
@@ -33,12 +31,12 @@ private:
 	float m_Xmax, m_Ymax;
 	float m_StepSizeX, m_StepSizeY;
 
-	float(*m_Function)(float, float);
+	std::queue<Token> m_Function;
 	std::vector<float>* m_Vertices;
 	unsigned int* m_Indices;
 
 public:
-	Function(float(*func)(float, float), float xmin = -1, float ymin = -1, float xmax = 1, float ymax = 1);
+	Function(std::queue<Token>& func, float xmin = -1, float ymin = -1, float xmax = 1, float ymax = 1);
 	~Function();
 
 	float* getVertices() const { return m_Vertices->data(); }
@@ -47,6 +45,7 @@ public:
 	unsigned int getIndexCount() const { return m_Vertices->size(); }
 
 	void SetDimensions(float xmin, float ymin, float xmax, float ymax);
+	void IncrementDimensions(float dxmin, float dymin, float dxmax, float dymax);
 	void RecomputeVertices();
 
 private:
@@ -54,6 +53,6 @@ private:
 	unsigned char* ComputeCellScores(ComparisonState* binaryImage);
 	std::vector<float>* ComputeVertices(unsigned char* cellScores);
 	unsigned int* ComputeIndices(unsigned int size);
-	float LinearInterpolateGetT(float f1, float f2);
+	inline float LinearInterpolateGetT(float f1, float f2);
 	Point LinearInterpolate(int arrx1, int arry1, int arrx2, int arry2);
 };
